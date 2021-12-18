@@ -2,31 +2,50 @@
 module Interpreter
 where
 
+import Data.List
+import Data.Maybe
+import qualified Data.Bifunctor
 import Parser
+import Data.Map
 
-evalPrint :: PrintExp -> IO()
-evalPrint (Print i) =  print $ evalIntExp i
+evalPrint :: PrintExp -> [VariableExp] -> ([VariableExp], IO())
+evalPrint (PrintInt i) vs  =  (vs, print $ evalIntExp i)
+evalPrint (PrintVar i) vs
+                        | isJust f    = (vs, print $ fromJust f)
+                        | isNothing f = (vs, return())
+                            where f = findVar i vs
 
-evalStatements :: [Statement] -> IO()
-evalStatements [x]    = evalStatement x
-evalStatements (x:xs) = evalStatement x  >> evalStatements xs
+evalStatements :: [Statement] -> [VariableExp] -> ([VariableExp], IO())
+evalStatements [x] vs    = evalStatement x vs
+evalStatements (x:xs) vs = Data.Bifunctor.bimap (fst e ++) (snd e >>) es
+                                where e  = evalStatement x vs
+                                      es = evalStatements xs $ fst e
 
-evalStatement :: Statement -> IO()
-evalStatement (PrintStm exp) = evalPrint exp
-evalStatement (IfStm exp)    = evalIfExp exp
-evalStatement (VarStm exp)   = evalVarExp exp
-evalStatement (WhileStm exp) = evalWhileExp exp
+evalStatement :: Statement ->  [VariableExp] -> ([VariableExp], IO())
+evalStatement (PrintStm exp) vs = evalPrint exp vs
+evalStatement (IfStm exp) vs    = evalIfExp exp vs
+evalStatement (VarStm exp) vs   = evalVarExp exp vs
+-- evalStatement (WhileStm exp) vs = evalWhileExp exp 
 
-evalVarExp :: VariableExp -> IO()
-evalVarExp (IntVar i)  = return()
-evalVarExp (BoolVar i) = return() 
+evalVarExp :: VariableExp -> [VariableExp] -> ([VariableExp], IO())
+evalVarExp v vs  = (v:vs, return())
+
+runVar :: VariableExp -> (String, Int)
+runVar (IntVar i) = i
+
+findVar :: String -> [VariableExp] -> Maybe Int
+findVar s [] = Nothing
+findVar s (v:vs)
+            | fst rv == s = Just $ snd rv
+            | fst rv /= s = findVar s vs
+                where rv = runVar v
 
 evalWhileExp = undefined
 
-evalIfExp :: IfExp -> IO()
-evalIfExp (If b e)
-                | evalBoolExp b       = evalStatements e
-                | not $ evalBoolExp b = return()
+evalIfExp :: IfExp -> [VariableExp] -> ([VariableExp], IO())
+evalIfExp (If b e) vs
+                | evalBoolExp b       = evalStatements e vs
+                | not $ evalBoolExp b = (vs, return())
 
 evalBoolExp :: BoolExp -> Bool
 evalBoolExp (BoolLit b) = b

@@ -85,22 +85,40 @@ parseNeg = do token '-'
 parseInt :: Parser Int
 parseInt = parseNat `mplus` parseNeg
 
-newtype PrintExp = Print IntExp deriving(Show)
+data PrintExp = PrintInt IntExp 
+            | PrintVar String
+            deriving(Show)
 
 parsePrintExp :: Parser [Statement]
-parsePrintExp = parseBegin <|> parseEnd
-    where parseBegin = do match "print("
-                          s <- parseIntExp
-                          match ");"
-                          ss <- parseStatement
-                          return $ PrintStm (Print s) : ss
-          parseEnd   = do match "print("
-                          s <- parseIntExp
-                          match ");"
-                          return [PrintStm (Print s)]
-
--- evalPrint :: PrintExp -> IO()
--- evalPrint (Print i) =  print $ evalIntExp i
+parsePrintExp = parseIntBegin <|> parseIntEnd <|> parseVarBegin <|> parseVarEnd
+-- <|> parseBoolBegin <|> parseBoolEnd
+    where parseIntBegin  = do match "print("
+                              s <- parseIntExp
+                              match ");"
+                              ss <- parseStatement
+                              return $ PrintStm (PrintInt s) : ss
+          parseIntEnd    = do match "print("
+                              s <- parseIntExp
+                              match ");"
+                              return [PrintStm (PrintInt s)]
+        --   parseBoolBegin = do match "print("
+        --                       s <- parseBoolExp
+        --                       match ");"
+        --                       ss <- parseStatement
+        --                       return $ PrintStm (PrintBool s) : ss
+        --   parseBoolEnd   = do match "print("
+        --                       s <- parseBoolExp
+        --                       match ");"
+        --                       return [PrintStm (PrintBool s)]
+          parseVarBegin  = do match "print("
+                              s <- parseString
+                              match ");"
+                              ss <- parseStatement
+                              return $ PrintStm (PrintVar s) : ss
+          parseVarEnd    = do match "print("
+                              s <- parseString
+                              match ");"
+                              return [PrintStm (PrintVar s)]
 
 data Statement = VarStm VariableExp
                 | IfStm IfExp
@@ -115,26 +133,10 @@ parseStatement = parseVarStm <|> parseIfStm <|> parsePrintStm
     parseIfStm    = do parseIfExp
     parsePrintStm = do parsePrintExp
 
--- evalStatements :: [Statement] -> IO()
--- evalStatements [x]    = evalStatement x
--- evalStatements (x:xs) = evalStatement x  >> evalStatements xs
-
--- evalStatement :: Statement -> IO()
--- evalStatement (PrintStm exp) = evalPrint exp
--- evalStatement (IfStm exp)    = evalIfExp exp
--- evalStatement (VarStm exp)   = evalVarExp exp
--- evalStatement (WhileStm exp) = evalWhileExp exp
-
-data VariableExp = IntVar (String, Int) 
-                | BoolVar (String, Bool)
-                deriving (Show)
-
--- evalVarExp :: VariableExp -> IO()
--- evalVarExp (IntVar i)  = return()
--- evalVarExp (BoolVar i) = return() 
+newtype VariableExp = IntVar (String, Int) deriving (Show)
 
 parseVariableExp :: Parser [Statement]
-parseVariableExp = parseBoolBegin <|> parseBoolEnd <|> parseIntBegin <|> parseIntEnd 
+parseVariableExp = parseIntBegin <|> parseIntEnd 
     where
     parseIntBegin  = do s <- parseString
                         token '='
@@ -147,29 +149,24 @@ parseVariableExp = parseBoolBegin <|> parseBoolEnd <|> parseIntBegin <|> parseIn
                         s' <- parseInt
                         token ';'
                         return [VarStm (IntVar (s, s'))]
-    parseBoolBegin = do s <- parseString
-                        token '='
-                        s' <- parseBoolExp
-                        let s'' = runBool s'
-                        token ';'
-                        ss <- parseStatement
-                        return $ VarStm (BoolVar (s, s'')) : ss
-    parseBoolEnd   = do s <- parseString
-                        token '='
-                        s' <- parseBoolExp
-                        let s'' = runBool s'
-                        token ';'
-                        return [VarStm (BoolVar (s, s''))]
+    -- parseBoolBegin = do s <- parseString
+    --                     token '='
+    --                     s' <- parseBoolExp
+    --                     let s'' = runBool s'
+    --                     token ';'
+    --                     ss <- parseStatement
+    --                     return $ VarStm (BoolVar (s, s'')) : ss
+    -- parseBoolEnd   = do s <- parseString
+    --                     token '='
+    --                     s' <- parseBoolExp
+    --                     let s'' = runBool s'
+    --                     token ';'
+    --                     return [VarStm (BoolVar (s, s''))]
 
 newtype WhileExp = While BoolExp deriving (Show)
 
 data IfExp = If BoolExp [Statement]
                 deriving (Show)
-
--- evalIfExp :: IfExp -> IO()
--- evalIfExp (If b e)
---                 | evalBoolExp b       = evalStatements e
---                 | not $ evalBoolExp b = return()
 
 parseIfExp :: Parser [Statement]
 parseIfExp = parseBegin <|> parseEnd
@@ -201,16 +198,6 @@ data BoolExp = BoolLit Bool
             | BoolExp :||: BoolExp
             | BoolExp :&&: BoolExp
             deriving (Eq,Show)
--- evalBoolExp :: BoolExp -> Bool
--- evalBoolExp (BoolLit b) = b
--- evalBoolExp (e :==: f)  = evalIntExp e == evalIntExp f
--- evalBoolExp (e :/=: f)  = evalIntExp e /= evalIntExp f
--- evalBoolExp (e :<: f)   = evalIntExp e < evalIntExp f
--- evalBoolExp (e :<=: f)  = evalIntExp e <= evalIntExp f
--- evalBoolExp (e :>: f)   = evalIntExp e > evalIntExp f
--- evalBoolExp (e :>=: f)  = evalIntExp e >= evalIntExp f
--- evalBoolExp (e :&&: f)  = evalBoolExp e && evalBoolExp f
--- evalBoolExp (e :||: f)  = evalBoolExp e || evalBoolExp f
 
 parseBoolExp :: Parser BoolExp
 parseBoolExp = parseTrue <|> parseFalse <|> parseEq <|> parseNE <|> parseLT <|> parseLTE <|> parseGT <|> parseGTE <|> parseAnd <|> parseOr
@@ -277,12 +264,6 @@ data IntExp = IntLit Int
          | IntExp :-: IntExp
          | IntExp :/: IntExp
          deriving (Eq,Show)
--- evalIntExp :: IntExp -> Int
--- evalIntExp (IntLit n) = n
--- evalIntExp (e :+: f)  = evalIntExp e + evalIntExp f
--- evalIntExp (e :-: f)  = evalIntExp e - evalIntExp f
--- evalIntExp (e :*: f)  = evalIntExp e * evalIntExp f
--- evalIntExp (e :/: f)  = evalIntExp e `div` evalIntExp f
 
 parseIntExp :: Parser IntExp
 parseIntExp = parseIntLit <|> parseAdd <|> parseSub <|> parseMul <|> parseDiv
