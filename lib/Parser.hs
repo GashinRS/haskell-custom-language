@@ -88,35 +88,50 @@ parseNeg = do token '-'
 parseInt :: Parser Int
 parseInt = parseNat `mplus` parseNeg
 
-data PrintExp = PrintInt IntExp 
-            | PrintVar String
-            deriving(Show)
+parseArguments :: Parser [IntExp]
+parseArguments = parseArgBegin <|> parseArgEnd
+    where parseArgBegin = do s <- parseIntExp
+                             token ','
+                             ss <- parseArguments
+                             return $ s:ss
+          parseArgEnd   = do s <- parseIntExp
+                             token ')'
+                             return [s]
 
-parsePrintExp :: Parser [Statement]
-parsePrintExp = parseIntBegin <|> parseIntEnd
-    where parseIntBegin  = do match "print("
-                              s <- parseIntExp
-                              match ");"
-                              ss <- parseStatement
-                              return $ PrintStm (PrintInt s) : ss
-          parseIntEnd    = do match "print("
-                              s <- parseIntExp
-                              match ");"
-                              return [PrintStm (PrintInt s)]
+data FunctionExp = Function String [IntExp] [Statement] deriving(Show)
+
+parseFunctionExp :: Parser [Statement]
+parseFunctionExp = parseDeclaration <|> parseCall
+    where parseDeclaration = do match "function"
+                                s <- parseString
+                                token '('
+                                arguments <- parseArguments
+                                token '{'
+                                statements <- parseStatement
+                                token '}'
+                                return [FunctionStm $ Function s arguments statements]
+          parseCall        = do match "call"
+                                s <- parseString
+                                token '('
+                                arguments <- parseArguments
+                                token ';'
+                                return [FunctionStm $ Function s arguments []]
 
 data Statement = VarStm VariableExp
                 | IfStm IfExp
                 | PrintStm PrintExp
                 | WhileStm WhileExp
+                | FunctionStm FunctionExp
                 deriving(Show)
 
 parseStatement :: Parser [Statement]
-parseStatement = parseVarStm <|> parseIfStm <|> parseWhileStm <|> parsePrintStm
+parseStatement = parseVarStm <|> parseIfStm <|> parseWhileStm <|> parsePrintStm <|> parseFunctionStm
     where
-    parseVarStm   = do parseVariableExp
-    parseIfStm    = do parseIfExp
-    parseWhileStm = do parseWhileExp
-    parsePrintStm = do parsePrintExp
+    parseVarStm      = do parseVariableExp
+    parseIfStm       = do parseIfExp
+    parseWhileStm    = do parseWhileExp
+    parsePrintStm    = do parsePrintExp
+    parseFunctionStm = do parseFunctionExp 
 
 newtype VariableExp = Var (String, IntExp) deriving (Show)
 
@@ -134,6 +149,28 @@ parseVariableExp = parseIntBegin <|> parseIntEnd
                         s' <- parseIntExp
                         token ';'
                         return [VarStm (Var (s, s'))]
+
+data IfExp = If BoolExp [Statement] deriving (Show)
+
+parseIfExp :: Parser [Statement]
+parseIfExp = parseBegin <|> parseEnd
+    where parseBegin = do match "if"
+                          token '('
+                          b <- parseBoolExp
+                          token ')'
+                          token '{'
+                          e <- parseStatement
+                          token '}'
+                          es <- parseStatement
+                          return $ IfStm (If b e) : es
+          parseEnd   = do match "if"
+                          token '('
+                          b <- parseBoolExp
+                          token ')'
+                          token '{'
+                          e <- parseStatement
+                          token '}'
+                          return [IfStm $ If b e]
 
 data WhileExp = While BoolExp [Statement] deriving (Show)
 
@@ -157,27 +194,21 @@ parseWhileExp = parseBegin <|> parseEnd
                           token '}'
                           return [WhileStm $ While b e]
 
-data IfExp = If BoolExp [Statement] deriving (Show)
+data PrintExp = PrintInt IntExp 
+            | PrintVar String
+            deriving(Show)
 
-parseIfExp :: Parser [Statement]
-parseIfExp = parseBegin <|> parseEnd
-    where parseBegin = do match "if"
-                          token '('
-                          b <- parseBoolExp
-                          token ')'
-                          token '{'
-                          e <- parseStatement
-                          token '}'
-                          es <- parseStatement
-                          return $ IfStm (If b e) : es
-          parseEnd   = do match "if"
-                          token '('
-                          b <- parseBoolExp
-                          token ')'
-                          token '{'
-                          e <- parseStatement
-                          token '}'
-                          return [IfStm $ If b e]
+parsePrintExp :: Parser [Statement]
+parsePrintExp = parseIntBegin <|> parseIntEnd
+    where parseIntBegin  = do match "print("
+                              s <- parseIntExp
+                              match ");"
+                              ss <- parseStatement
+                              return $ PrintStm (PrintInt s) : ss
+          parseIntEnd    = do match "print("
+                              s <- parseIntExp
+                              match ");"
+                              return [PrintStm (PrintInt s)]
 
 data BoolExp = BoolLit Bool
             | IntExp :==: IntExp
