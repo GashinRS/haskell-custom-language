@@ -16,7 +16,7 @@ data Evaluation = Eval { variables :: Map.Map String Int,
 evalStatements :: [Statement] -> Evaluation -> Evaluation
 evalStatements [] es     = es
 evalStatements [x] es    = evalStatement x es
-evalStatements (x:xs) es = Eval v f' $ i >> i'
+evalStatements (x:xs) es = Eval v' f' $ i >> i'
                                 where (Eval v f i)    = evalStatement x es
                                       (Eval v' f' i') = evalStatements xs $ Eval v f i
 
@@ -47,10 +47,6 @@ evalVarExp (Var (s, VarLit s')) (Eval v f i)
                                 where lu = Map.lookup s' v
 evalVarExp (Var (s, intExp)) (Eval v f i)    = Eval (Map.insert s (evalIntExp intExp (Eval v f i)) v) f i
 
--- evalFunction :: FunctionExp -> Evaluation -> Evaluation
--- evalFunction (Function name args stms) (Eval v f i)
---                                             | not $ null stms = Eval v (Map.insert name (args, stms) f) i --function declaration
---                                             | null stms       = evalStatements (snd (Map.lookup name f)) (Eval v f i) --function call
 evalFunction :: FunctionExp -> Evaluation -> Evaluation
 --function call
 evalFunction (Function name args []) (Eval v f i) 
