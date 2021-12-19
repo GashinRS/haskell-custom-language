@@ -8,62 +8,82 @@ import qualified Data.Bifunctor
 import Parser
 import qualified Data.Map as Map
 
-evalStatements :: [Statement] -> Map.Map String Int -> (Map.Map String Int, IO())
-evalStatements [x] vs    = evalStatement x vs
-evalStatements (x:xs) vs = Data.Bifunctor.bimap (Map.union (fst e)) (snd e >>) es
-                                where e  = evalStatement x vs
-                                      es = evalStatements xs $ fst e
+data Evaluation = Eval { variables :: Map.Map String Int,
+                        functions :: Map.Map String ([IntExp], [Statement]),
+                        io :: IO()
+                        }
 
-evalStatement :: Statement -> Map.Map String Int -> (Map.Map String Int, IO())
-evalStatement (PrintStm exp) vs = evalPrint exp vs
-evalStatement (IfStm exp) vs    = evalIfExp exp vs
-evalStatement (WhileStm exp) vs = evalWhileExp exp (return()) vs
-evalStatement (VarStm exp) vs   = evalVarExp exp vs
+evalStatements :: [Statement] -> Evaluation -> Evaluation
+evalStatements [] es     = es
+evalStatements [x] es    = evalStatement x es
+evalStatements (x:xs) es = Eval v f' $ i >> i'
+                                where (Eval v f i)    = evalStatement x es
+                                      (Eval v' f' i') = evalStatements xs $ Eval v f i
 
-evalPrint :: PrintExp -> Map.Map String Int -> (Map.Map String Int, IO())
-evalPrint (PrintInt i) vs  =  (vs, print $ evalIntExp i vs)
-evalPrint (PrintVar i) vs
-                        | isJust f    = (vs, print $ fromJust f)
-                        | isNothing f = (vs, return())
-                            where f = Map.lookup i vs
+evalStatement :: Statement -> Evaluation -> Evaluation
+evalStatement (PrintStm exp) es    = evalPrint exp es
+evalStatement (IfStm exp) es       = evalIfExp exp es
+evalStatement (WhileStm exp) es    = evalWhileExp exp (return()) es
+evalStatement (VarStm exp) es      = evalVarExp exp es
+evalStatement (FunctionStm exp) es = evalFunction exp es
 
-evalIfExp :: IfExp -> Map.Map String Int -> (Map.Map String Int, IO())
-evalIfExp (If b e) vs
-                | evalBoolExp b vs       = evalStatements e vs
-                | not $ evalBoolExp b vs = (vs, return())
+evalPrint :: PrintExp -> Evaluation -> Evaluation
+evalPrint (PrintInt p) (Eval v f i) = Eval v f $ print (evalIntExp p (Eval v f i))
+evalPrint (PrintVar p) (Eval v f i)
+                        | isJust lu    = Eval v f $ print (fromJust lu)
+                        | isNothing lu = Eval v f i
+                            where lu = Map.lookup p v
 
-evalVarExp :: VariableExp -> Map.Map String Int -> (Map.Map String Int, IO())
-evalVarExp (Var (s, IntLit i)) vs = (uncurry Map.insert (s, i) vs, return())
-evalVarExp (Var (s, VarLit s')) vs
-                            | isNothing lu = (vs, return())
-                            | isJust lu    = (Map.insert s (fromJust lu) vs, return())
-                                where lu = Map.lookup s' vs
-evalVarExp (Var (s, i)) vs        = (Map.insert s (evalIntExp i vs) vs, return())
+evalIfExp :: IfExp -> Evaluation -> Evaluation
+evalIfExp (If b s) (Eval v f i)
+                | evalBoolExp b (Eval v f i)       = evalStatements s (Eval v f i)
+                | not $ evalBoolExp b (Eval v f i) = Eval v f $ return()
 
-evalWhileExp :: WhileExp -> IO() -> Map.Map String Int -> (Map.Map String Int, IO())
-evalWhileExp (While b e) io vs
-                    | evalBoolExp b vs       = evalWhileExp (While b e) (io >> snd nextLoop) $ fst nextLoop
-                    | not $ evalBoolExp b vs = (vs, io)
-                    where nextLoop = evalStatements e vs
+evalVarExp :: VariableExp -> Evaluation -> Evaluation
+evalVarExp (Var (s, IntLit il)) (Eval v f i) = Eval (Map.insert s il v) f i
+evalVarExp (Var (s, VarLit s')) (Eval v f i)
+                            | isNothing lu = error $ "variable " ++ s' ++ " does not exist"
+                            | isJust lu    = Eval (Map.insert s (fromJust lu) v) f i
+                                where lu = Map.lookup s' v
+evalVarExp (Var (s, intExp)) (Eval v f i)    = Eval (Map.insert s (evalIntExp intExp (Eval v f i)) v) f i
 
-evalBoolExp :: BoolExp -> Map.Map String Int -> Bool
+-- evalFunction :: FunctionExp -> Evaluation -> Evaluation
+-- evalFunction (Function name args stms) (Eval v f i)
+--                                             | not $ null stms = Eval v (Map.insert name (args, stms) f) i --function declaration
+--                                             | null stms       = evalStatements (snd (Map.lookup name f)) (Eval v f i) --function call
+evalFunction :: FunctionExp -> Evaluation -> Evaluation
+--function call
+evalFunction (Function name args []) (Eval v f i) 
+                                            | isNothing lu = error $ "function " ++ name ++ " does not exist"
+                                            | isJust lu    = evalStatements (snd $ fromJust lu) (Eval v f i)
+                                                where lu = Map.lookup name f
+--function declaration
+evalFunction (Function name args stms) (Eval v f i) = Eval v (Map.insert name (args, stms) f) i 
+
+evalWhileExp :: WhileExp -> IO() -> Evaluation -> Evaluation
+evalWhileExp (While b e) io (Eval v f i)
+                    | evalBoolExp b (Eval v f i)       = evalWhileExp (While b e) (io >> i') $ Eval v' f' $ return()
+                    | not $ evalBoolExp b (Eval v f i) = Eval v f io
+                    where (Eval v' f' i') = evalStatements e (Eval v f i) --next loop
+
+evalBoolExp :: BoolExp -> Evaluation -> Bool
 evalBoolExp (BoolLit b) vs = b
-evalBoolExp (e :==: f)  vs = evalIntExp e vs == evalIntExp f vs
-evalBoolExp (e :/=: f)  vs = evalIntExp e vs /= evalIntExp f vs
-evalBoolExp (e :<: f)   vs = evalIntExp e vs < evalIntExp f vs
-evalBoolExp (e :<=: f)  vs = evalIntExp e vs <= evalIntExp f vs
-evalBoolExp (e :>: f)   vs = evalIntExp e vs > evalIntExp f vs
-evalBoolExp (e :>=: f)  vs = evalIntExp e vs >= evalIntExp f vs
-evalBoolExp (e :&&: f)  vs = evalBoolExp e vs && evalBoolExp f vs
-evalBoolExp (e :||: f)  vs = evalBoolExp e vs || evalBoolExp f vs
+evalBoolExp (e :==: e') (Eval v f i) = evalIntExp e (Eval v f i) == evalIntExp e' (Eval v f i)
+evalBoolExp (e :/=: e') (Eval v f i) = evalIntExp e (Eval v f i) /= evalIntExp e' (Eval v f i)
+evalBoolExp (e :<: e')  (Eval v f i) = evalIntExp e (Eval v f i) < evalIntExp e' (Eval v f i)
+evalBoolExp (e :<=: e') (Eval v f i) = evalIntExp e (Eval v f i) <= evalIntExp e' (Eval v f i)
+evalBoolExp (e :>: e')  (Eval v f i) = evalIntExp e (Eval v f i) > evalIntExp e' (Eval v f i)
+evalBoolExp (e :>=: e') (Eval v f i) = evalIntExp e (Eval v f i) >= evalIntExp e' (Eval v f i)
+evalBoolExp (e :&&: e') (Eval v f i) = evalBoolExp e (Eval v f i) && evalBoolExp e' (Eval v f i)
+evalBoolExp (e :||: e') (Eval v f i) = evalBoolExp e (Eval v f i) || evalBoolExp e' (Eval v f i)
 
-evalIntExp :: IntExp -> Map.Map String Int -> Int
-evalIntExp (IntLit n) vs = n
-evalIntExp (VarLit v) vs
-                    | isNothing lu = error $ "variable " ++ v ++ " does not exist"
+evalIntExp :: IntExp -> Evaluation -> Int
+evalIntExp (IntLit n) (Eval v f i) = n
+evalIntExp (VarLit vl) (Eval v f i)
+                    | isNothing lu = error $ "variable " ++ vl ++ " does not exist"
                     | isJust lu    = fromJust lu
-                        where lu = Map.lookup v vs
-evalIntExp (e :+: f)  vs = evalIntExp e vs + evalIntExp f vs
-evalIntExp (e :-: f)  vs = evalIntExp e vs - evalIntExp f vs
-evalIntExp (e :*: f)  vs = evalIntExp e vs * evalIntExp f vs
-evalIntExp (e :/: f)  vs = evalIntExp e vs `div` evalIntExp f vs
+                        where lu = Map.lookup vl v
+evalIntExp (e :+: e') (Eval v f i) = evalIntExp e (Eval v f i) + evalIntExp e' (Eval v f i)
+evalIntExp (e :-: e') (Eval v f i) = evalIntExp e (Eval v f i) - evalIntExp e' (Eval v f i)
+evalIntExp (e :*: e') (Eval v f i) = evalIntExp e (Eval v f i) * evalIntExp e' (Eval v f i)
+evalIntExp (e :/: e') (Eval v f i) = evalIntExp e (Eval v f i) `div` evalIntExp e' (Eval v f i)

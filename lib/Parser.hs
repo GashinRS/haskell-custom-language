@@ -88,35 +88,6 @@ parseNeg = do token '-'
 parseInt :: Parser Int
 parseInt = parseNat `mplus` parseNeg
 
-parseArguments :: Parser [IntExp]
-parseArguments = parseArgBegin <|> parseArgEnd
-    where parseArgBegin = do s <- parseIntExp
-                             token ','
-                             ss <- parseArguments
-                             return $ s:ss
-          parseArgEnd   = do s <- parseIntExp
-                             token ')'
-                             return [s]
-
-data FunctionExp = Function String [IntExp] [Statement] deriving(Show)
-
-parseFunctionExp :: Parser [Statement]
-parseFunctionExp = parseDeclaration <|> parseCall
-    where parseDeclaration = do match "function"
-                                s <- parseString
-                                token '('
-                                arguments <- parseArguments
-                                token '{'
-                                statements <- parseStatement
-                                token '}'
-                                return [FunctionStm $ Function s arguments statements]
-          parseCall        = do match "call"
-                                s <- parseString
-                                token '('
-                                arguments <- parseArguments
-                                token ';'
-                                return [FunctionStm $ Function s arguments []]
-
 data Statement = VarStm VariableExp
                 | IfStm IfExp
                 | PrintStm PrintExp
@@ -131,12 +102,12 @@ parseStatement = parseVarStm <|> parseIfStm <|> parseWhileStm <|> parsePrintStm 
     parseIfStm       = do parseIfExp
     parseWhileStm    = do parseWhileExp
     parsePrintStm    = do parsePrintExp
-    parseFunctionStm = do parseFunctionExp 
+    parseFunctionStm = do parseFunctionExp
 
 newtype VariableExp = Var (String, IntExp) deriving (Show)
 
 parseVariableExp :: Parser [Statement]
-parseVariableExp = parseIntBegin <|> parseIntEnd 
+parseVariableExp = parseIntBegin <|> parseIntEnd
     where
     parseIntBegin  = do s <- parseString
                         token '='
@@ -194,7 +165,7 @@ parseWhileExp = parseBegin <|> parseEnd
                           token '}'
                           return [WhileStm $ While b e]
 
-data PrintExp = PrintInt IntExp 
+data PrintExp = PrintInt IntExp
             | PrintVar String
             deriving(Show)
 
@@ -209,6 +180,53 @@ parsePrintExp = parseIntBegin <|> parseIntEnd
                               s <- parseIntExp
                               match ");"
                               return [PrintStm (PrintInt s)]
+
+parseArguments :: Parser [IntExp]
+parseArguments = parseArgBegin <|> parseArgEnd <|> parseNoArg
+    where parseArgBegin = do s <- parseIntExp
+                             token ','
+                             ss <- parseArguments
+                             return $ s:ss
+          parseArgEnd   = do s <- parseIntExp
+                             token ')'
+                             return [s]
+          parseNoArg    = do token ')'
+                             return []
+
+data FunctionExp = Function String [IntExp] [Statement] deriving(Show)
+
+parseFunctionExp :: Parser [Statement]
+parseFunctionExp = parseDeclarationBegin <|> parseDeclarationEnd <|> parseCallBegin <|> parseCallEnd
+    where parseDeclarationBegin = do match "function"
+                                     name <- parseString
+                                     token '('
+                                     arguments <- parseArguments
+                                     token '{'
+                                     statements <- parseStatement
+                                     token '}'
+                                     remainder <- parseStatement
+                                     return $ FunctionStm (Function name arguments statements):remainder
+          parseDeclarationEnd   = do match "function"
+                                     name <- parseString
+                                     token '('
+                                     arguments <- parseArguments
+                                     token '{'
+                                     statements <- parseStatement
+                                     token '}'
+                                     return [FunctionStm $ Function name arguments statements]
+          parseCallBegin        = do match "call"
+                                     name <- parseString
+                                     token '('
+                                     arguments <- parseArguments
+                                     token ';'
+                                     remainder <- parseStatement
+                                     return $ FunctionStm (Function name arguments []):remainder
+          parseCallEnd          = do match "call"
+                                     name <- parseString
+                                     token '('
+                                     arguments <- parseArguments
+                                     token ';'
+                                     return [FunctionStm (Function name arguments [])]
 
 data BoolExp = BoolLit Bool
             | IntExp :==: IntExp
@@ -277,7 +295,7 @@ parseBoolExp = parseTrue <|> parseFalse <|> parseEq <|> parseNE <|> parseLT <|> 
                     token ')'
                     return (d :||: e)
 
-runBool :: BoolExp -> Bool 
+runBool :: BoolExp -> Bool
 runBool (BoolLit b) = b
 
 data IntExp = IntLit Int

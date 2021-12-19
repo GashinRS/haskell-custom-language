@@ -8,6 +8,6 @@ import System.Environment (getArgs)
 main :: IO ()
 main = do (filename:_) <- getArgs -- het eerste argument (stack run tetris.xyz)
           contents <- readFile filename -- bevat de inhoud van tetris.xyz als String
-          snd $ evalStatements (parse parseStatement $ filter (not . isSpace) contents) Map.empty
+          io $ evalStatements (parse parseStatement $ filter (not . isSpace) contents) $ Eval Map.empty Map.empty $ return()
           --evalPrint $ parse parsePrint "print(3);"
           --putStrLn $ filter (not . isSpace) contents

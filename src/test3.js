@@ -1,3 +1,5 @@
-x=0;
-print(2);
-print(x);
+function printNumber(){
+    print(42);
+}
+print(0);
+call printNumber();
