@@ -1,12 +1,9 @@
-z = 3;
-if (((z>0) && (40!=41))){
-    x = 2;
-    y = x;
-    x = (2*y);
-    x = (x + 1);
-    print(y);
-    print(x);
-    if ((2==y)){
-        print(42);
-    }
+function square(a){
+    return (a*a);
+}
+
+x = 0;
+while((x<5)){
+    x = (x+1);
+    print(call square(x));
 }

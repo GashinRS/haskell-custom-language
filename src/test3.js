@@ -1,5 +1,6 @@
 function printNumber(){
-    print(42);
+    return 1;
 }
-print(0);
-call printNumber();
+x = 0;
+x = call printNumber();
+print(x);
