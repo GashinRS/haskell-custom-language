@@ -72,6 +72,9 @@ plus p = do x <- p
 parseString :: Parser String
 parseString = do plus $ spot isAlpha
 
+-- parseString' :: Char -> Parser String 
+-- parseString' c = do plus $ spot (/= c)
+
 -- match a natural number
 parseNat :: Parser Int
 parseNat = do s <- plus (spot isDigit)
@@ -90,8 +93,7 @@ data PrintExp = PrintInt IntExp
             deriving(Show)
 
 parsePrintExp :: Parser [Statement]
-parsePrintExp = parseIntBegin <|> parseIntEnd <|> parseVarBegin <|> parseVarEnd
--- <|> parseBoolBegin <|> parseBoolEnd
+parsePrintExp = parseIntBegin <|> parseIntEnd
     where parseIntBegin  = do match "print("
                               s <- parseIntExp
                               match ");"
@@ -101,24 +103,6 @@ parsePrintExp = parseIntBegin <|> parseIntEnd <|> parseVarBegin <|> parseVarEnd
                               s <- parseIntExp
                               match ");"
                               return [PrintStm (PrintInt s)]
-        --   parseBoolBegin = do match "print("
-        --                       s <- parseBoolExp
-        --                       match ");"
-        --                       ss <- parseStatement
-        --                       return $ PrintStm (PrintBool s) : ss
-        --   parseBoolEnd   = do match "print("
-        --                       s <- parseBoolExp
-        --                       match ");"
-        --                       return [PrintStm (PrintBool s)]
-          parseVarBegin  = do match "print("
-                              s <- parseString
-                              match ");"
-                              ss <- parseStatement
-                              return $ PrintStm (PrintVar s) : ss
-          parseVarEnd    = do match "print("
-                              s <- parseString
-                              match ");"
-                              return [PrintStm (PrintVar s)]
 
 data Statement = VarStm VariableExp
                 | IfStm IfExp
@@ -127,46 +111,53 @@ data Statement = VarStm VariableExp
                 deriving(Show)
 
 parseStatement :: Parser [Statement]
-parseStatement = parseVarStm <|> parseIfStm <|> parsePrintStm
+parseStatement = parseVarStm <|> parseIfStm <|> parseWhileStm <|> parsePrintStm
     where
     parseVarStm   = do parseVariableExp
     parseIfStm    = do parseIfExp
+    parseWhileStm = do parseWhileExp
     parsePrintStm = do parsePrintExp
 
-newtype VariableExp = IntVar (String, Int) deriving (Show)
+newtype VariableExp = Var (String, IntExp) deriving (Show)
 
 parseVariableExp :: Parser [Statement]
 parseVariableExp = parseIntBegin <|> parseIntEnd 
     where
     parseIntBegin  = do s <- parseString
                         token '='
-                        s' <- parseInt
+                        s' <- parseIntExp
                         token ';'
                         ss <- parseStatement
-                        return $ VarStm (IntVar (s, s')) : ss
+                        return $ VarStm (Var (s, s')) : ss
     parseIntEnd    = do s <- parseString
                         token '='
-                        s' <- parseInt
+                        s' <- parseIntExp
                         token ';'
-                        return [VarStm (IntVar (s, s'))]
-    -- parseBoolBegin = do s <- parseString
-    --                     token '='
-    --                     s' <- parseBoolExp
-    --                     let s'' = runBool s'
-    --                     token ';'
-    --                     ss <- parseStatement
-    --                     return $ VarStm (BoolVar (s, s'')) : ss
-    -- parseBoolEnd   = do s <- parseString
-    --                     token '='
-    --                     s' <- parseBoolExp
-    --                     let s'' = runBool s'
-    --                     token ';'
-    --                     return [VarStm (BoolVar (s, s''))]
+                        return [VarStm (Var (s, s'))]
 
-newtype WhileExp = While BoolExp deriving (Show)
+data WhileExp = While BoolExp [Statement] deriving (Show)
 
-data IfExp = If BoolExp [Statement]
-                deriving (Show)
+parseWhileExp :: Parser [Statement]
+parseWhileExp = parseBegin <|> parseEnd
+    where parseBegin = do match "while"
+                          token '('
+                          b <- parseBoolExp
+                          token ')'
+                          token '{'
+                          e <- parseStatement
+                          token '}'
+                          es <- parseStatement
+                          return $ WhileStm (While b e) : es
+          parseEnd   = do match "while"
+                          token '('
+                          b <- parseBoolExp
+                          token ')'
+                          token '{'
+                          e <- parseStatement
+                          token '}'
+                          return [WhileStm $ While b e]
+
+data IfExp = If BoolExp [Statement] deriving (Show)
 
 parseIfExp :: Parser [Statement]
 parseIfExp = parseBegin <|> parseEnd
@@ -214,7 +205,7 @@ parseBoolExp = parseTrue <|> parseFalse <|> parseEq <|> parseNE <|> parseLT <|> 
                     return (d :==: e)
     parseNE    = do token '('
                     d <- parseIntExp
-                    match "/="
+                    match "!="
                     e <- parseIntExp
                     token ')'
                     return (d :/=: e)
@@ -259,6 +250,7 @@ runBool :: BoolExp -> Bool
 runBool (BoolLit b) = b
 
 data IntExp = IntLit Int
+         | VarLit String
          | IntExp :+: IntExp
          | IntExp :*: IntExp
          | IntExp :-: IntExp
@@ -266,30 +258,31 @@ data IntExp = IntLit Int
          deriving (Eq,Show)
 
 parseIntExp :: Parser IntExp
-parseIntExp = parseIntLit <|> parseAdd <|> parseSub <|> parseMul <|> parseDiv
+parseIntExp = parseIntLit <|> parseVarLit <|> parseAdd <|> parseSub <|> parseMul <|> parseDiv
     where
-    parseIntLit= do IntLit <$> parseInt
-    parseAdd   = do token '('
-                    d <- parseIntExp
-                    token '+'
-                    e <- parseIntExp
-                    token ')'
-                    return (d :+: e)
-    parseSub   = do token '('
-                    d <- parseIntExp
-                    token '-'
-                    e <- parseIntExp
-                    token ')'
-                    return (d :-: e)
-    parseMul   = do token '('
-                    d <- parseIntExp
-                    token '*'
-                    e <- parseIntExp
-                    token ')'
-                    return (d :*: e)
-    parseDiv   = do token '('
-                    d <- parseIntExp
-                    token '/'
-                    e <- parseIntExp
-                    token ')'
-                    return (d :/: e)
+    parseIntLit = do IntLit <$> parseInt
+    parseVarLit = do VarLit <$> parseString
+    parseAdd    = do token '('
+                     d <- parseIntExp
+                     token '+'
+                     e <- parseIntExp
+                     token ')'
+                     return (d :+: e)
+    parseSub    = do token '('
+                     d <- parseIntExp
+                     token '-'
+                     e <- parseIntExp
+                     token ')'
+                     return (d :-: e)
+    parseMul    = do token '('
+                     d <- parseIntExp
+                     token '*'
+                     e <- parseIntExp
+                     token ')'
+                     return (d :*: e)
+    parseDiv    = do token '('
+                     d <- parseIntExp
+                     token '/'
+                     e <- parseIntExp
+                     token ')'
+                     return (d :/: e)
