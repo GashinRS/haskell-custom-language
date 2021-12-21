@@ -14,8 +14,7 @@ import TempMain
 main :: IO ()
 main = do (filename:_) <- getArgs -- het eerste argument (stack run tetris.xyz)
           contents <- readFile filename -- bevat de inhoud van tetris.xyz als String
-          let all = evalStatements (parse parseStatement $ filter (not . isSpace) contents) $ Eval Map.empty Map.empty (return()) $ BlockGame (0,0) [] (0,0) []
-        --   io e
+          let all = evalStatements (parse parseStatement $ filter (not . isSpace) contents) $ Eval Map.empty Map.empty (return()) $ BlockGame (0,0) [] (0,0) [] []
           let funs = functions all
           let start = callGameFunction "startGame" all
           stdGen <- getStdGen

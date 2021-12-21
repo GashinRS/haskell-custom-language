@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module Engine
 where
 
@@ -5,6 +6,7 @@ import qualified Data.Map as Map
 import Graphics.Gloss
 import System.Random (StdGen, getStdGen, randomR)
 import Graphics.Gloss.Interface.Pure.Game
+import Data.List
 
 type X = Int
 type Y = Int
@@ -14,7 +16,10 @@ type Direction = Coord
 data Game = BlockGame { startPos :: Coord,
                         player :: [Coord],
                         direction :: Direction,
-                        targets :: [Coord]}
+                        targets :: [Coord],
+                        bullets :: [Coord]}
+            | Won
+            | GameOver
 
 getRandomNumberInRange :: StdGen -> Int -> Int -> (Int, StdGen)
 getRandomNumberInRange stdGen l u = randomR (l, u) stdGen
@@ -97,47 +102,112 @@ drawColored c = drawPicture c coloredTile
 drawPicture :: Coord -> Picture -> Picture
 drawPicture c = translate (adjustSize $ fst c) (adjustSize $ snd c)
 
+displayMessage :: String -> Picture
+displayMessage m = Scale 0.5 0.5 $ translate (adjustSize (-width)) 0 $ Text m
+
 -- Geeft alle mogelijke coordinaten terug van het bord
 getBoardCoordinates :: [Coord]
 getBoardCoordinates = [(x, y) | x <- [left..right],
                                 y <- [bottom..top]]
 
-getters :: Map.Map String (Game -> Int)
-getters = Map.fromList [("getWidth", getWidth), ("getHeight", getHeight), ("getPlayerX", getPlayerX), 
-                        ("getPlayerY", getPlayerY)]
+getters :: Map.Map String ([Int] -> Game -> Int)
+getters = Map.fromList [("getWidth", getWidth), ("getHeight", getHeight), ("getPlayerX", getPlayerX),
+                        ("getPlayerY", getPlayerY), ("getTargetsAmount", getTargetsAmount), ("targetAt", targetAt)]
 
-getWidth :: Game -> Int 
-getWidth _ = width
+getWidth :: [Int] -> Game -> Int
+getWidth _ _ = width
 
-getHeight :: Game -> Int 
-getHeight _ = height
+getHeight :: [Int] -> Game -> Int
+getHeight _ _ = height
 
-getPlayerX :: Game -> Int 
-getPlayerX (BlockGame s p d t) = fst $ head p
+getPlayerX :: [Int] -> Game -> Int
+getPlayerX _ (BlockGame s p d t b) = fst $ head p
 
-getPlayerY :: Game -> Int 
-getPlayerY (BlockGame s p d t) = snd $ head p
+getPlayerY :: [Int] -> Game -> Int
+getPlayerY _ (BlockGame s p d t b) = snd $ head p
+
+getTargetsAmount :: [Int] -> Game -> Int
+getTargetsAmount _ (BlockGame s p d t b) = length t
+
+targetAt :: [Int] -> Game -> Int
+targetAt xy (BlockGame s p d t b) | (x,y) `elem` t = 1
+                                  | (x,y) `notElem` t = 0
+                                    where x = head xy
+                                          y = xy !! 1
+
 
 builtInFunctions :: Map.Map String ([Int] -> Game -> Game)
-builtInFunctions = Map.fromList [("setPlayerStart", setPlayerStart), ("updatePlayerPos", updatePlayerPos), ("addTarget", addTarget), 
-                                ("moveAllTargets", moveAllTargets)]
+builtInFunctions = Map.fromList [("setPlayerStart", setPlayerStart), ("updatePlayerPos", updatePlayerPos), ("addTarget", addTarget),
+                                ("moveAllTargets", moveAllTargets), ("shoot", shoot), ("moveAllBullets", moveAllBullets),
+                                ("removeOutOfBoundBullets", removeOutOfBoundBullets), ("removeOutOfBoundsTargets", removeOutOfBoundsTargets),
+                                ("removeCollidingTargetsAndBullets", removeCollidingTargetsAndBullets), ("setWon", setWon),
+                                ("setGameOver", setGameOver), ("addTargets", addTargets)]
 
 setPlayerStart :: [Int] -> Game -> Game
-setPlayerStart xy (BlockGame s p d t) = let x = head xy
-                                            y = xy !! 1
-                                        in BlockGame (x, y) [(x,y)] d t
+setPlayerStart xy (BlockGame s p d t b) = let x = head xy
+                                              y = xy !! 1
+                                            in BlockGame (x, y) [(x,y)] d t b
 
 updatePlayerPos :: [Int] -> Game -> Game
-updatePlayerPos xydiff (BlockGame s p d t) = let x = head xydiff
-                                                 y = xydiff !! 1
-                                             in BlockGame s [(fst co + x, snd co + y) | co <- p] d t
+updatePlayerPos xydiff (BlockGame s p d t b) = let x = head xydiff
+                                                   y = xydiff !! 1
+                                                in BlockGame s [(fst co + x, snd co + y) | co <- p] d t b
 
 addTarget :: [Int] -> Game -> Game
-addTarget xy (BlockGame s p d t) = let x = head xy
-                                       y = xy !! 1
-                                    in BlockGame s p d $ (x,y):t
+addTarget xy (BlockGame s p d t b) = let x = head xy
+                                         y = xy !! 1
+                                        in BlockGame s p d ((x,y):t) b
+
+addTargets :: [Int] -> Game -> Game
+addTargets xys (BlockGame s p d t b) = BlockGame s p d (intListToCoords xys ++ t) b
+
+intListToCoords :: [Int] -> [Coord]
+intListToCoords i = let half = length i `div` 2 in [(i !! x, i !! (x + half)) | x <- [0..half-1]]
+
+moveAll :: [Int] -> [Coord] -> [Coord]
+moveAll xydiff cos = let x = head xydiff
+                         y = xydiff !! 1
+                        in [(fst co + x, snd co + y) | co <- cos]
 
 moveAllTargets :: [Int] -> Game -> Game
-moveAllTargets xydiff (BlockGame s p d t) = let x = head xydiff
-                                                y = xydiff !! 1
-                                             in BlockGame s p d [(fst co + x, snd co + y) | co <- t]
+moveAllTargets xydiff (BlockGame s p d t b) = BlockGame s p d (moveAll xydiff t) b
+
+moveAllBullets :: [Int] -> Game -> Game
+moveAllBullets xydiff (BlockGame s p d t b) = BlockGame s p d t $ moveAll xydiff b
+
+shoot :: [Int] -> Game -> Game
+shoot xy (BlockGame s p d t b) = let x = head xy
+                                     y = xy !! 1
+                                    in BlockGame s p d t $ b ++ [(x,y)]
+
+removeOutOfBounds :: [Int] -> [Coord] -> [Coord]
+removeOutOfBounds xybound cos = let xbound = head xybound
+                                    ybound = xybound !! 1
+                                   in filter (isInBound xbound ybound) cos
+
+removeOutOfBoundBullets :: [Int] -> Game -> Game
+removeOutOfBoundBullets xybound (BlockGame s p d t b) = BlockGame s p d t $ removeOutOfBounds xybound b
+
+removeOutOfBoundsTargets :: [Int] -> Game -> Game
+removeOutOfBoundsTargets xybound (BlockGame s p d t b) = BlockGame s p d (removeOutOfBounds xybound t) b
+
+isInBound :: Int -> Int -> Coord -> Bool
+isInBound xbound ybound co = let cox = fst co
+                                 coy = snd co
+                                in cox >= -xbound && cox <= xbound && coy >= -ybound && coy <= ybound
+
+collide :: [Coord] -> [Coord] -> ([Coord], [Coord])
+collide c1 c2 =  let common = c1 `intersect` c2 in (c1 \\ common, c2 \\ common)
+
+removeCollidingTargetsAndBullets :: [Int] -> Game -> Game
+removeCollidingTargetsAndBullets _ (BlockGame s p d t b) = let (nt, nb) = collide t b
+                                            in BlockGame s p d nt nb
+
+setWon :: [Int] -> Game -> Game
+setWon _ _ = Won
+
+setGameOver :: [Int] -> Game -> Game
+setGameOver _ _ = GameOver
+
+
+                                

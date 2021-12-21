@@ -11,7 +11,6 @@ import Engine
 
 data Evaluation = Eval { variables :: Map.Map String Int,
                         functions :: Map.Map String FunctionValues,
-                        --builtInFun :: Map.Map String ([Int] -> Game -> Game),
                         io :: IO(),
                         game :: Game
                         }
@@ -60,10 +59,10 @@ evalVarExp (Var (s, intExp)) (Eval v f i g)    = Eval (Map.insert s (evalIntExp 
 evalFunctionDecl :: FunctionDeclExp -> Evaluation -> Evaluation
 evalFunctionDecl (FunctionDecl name args stms returnV) (Eval v f i g) = Eval v (Map.insert name (FunV args stms returnV) f) i g
 
-evalGetterCall :: String -> Game -> Int 
-evalGetterCall name game
+evalGetterCall :: String -> [Int] -> Game -> Int 
+evalGetterCall name args game
                 | isNothing lu = error $ "function " ++ name ++ " does not exist"
-                | isJust lu    = fromJust lu game
+                | isJust lu    = fromJust lu args game
                 where lu = Map.lookup name getters
 
 evalFunctionCall :: FunctionCallExp -> Evaluation -> Int
@@ -119,7 +118,7 @@ evalIntExp (VarLit vl) (Eval v f i g)
                               lu = Map.lookup stripped v
                               
 evalIntExp (FunctionCallLit name arguments) (Eval v f i g)
-                                                    | isNothing lu = evalGetterCall name g
+                                                    | isNothing lu = evalGetterCall name (intExpListToIntList arguments (Eval v f i g)) g
                                                     | isJust lu    = evalFunctionCall (FunctionCall name arguments) $ Eval v f i g
                                                         where lu = Map.lookup name f
 evalIntExp (e :+: e') (Eval v f i g) = evalIntExp e (Eval v f i g) + evalIntExp e' (Eval v f i g)

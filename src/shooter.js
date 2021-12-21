@@ -1,20 +1,49 @@
+width = (call getWidth()/2);
+height = (call getHeight()/2);
+
 function startGame(){
     bottom = (-1 * (call getHeight()/2));
     call setPlayerStart(0,bottom);
-    call addTarget(0,10);
-    call addTarget(1,10);
-    call addTarget(-1,10);
+    call addTargets(0,1,-1,10,10,10);
     return 0;
 }
 
 
 function nextStep(){
     call moveAllTargets(0,-1);
+    index = 0;
+    bulletsAtBottom = 0;
+
+    while (((index < call getWidth()) && (bulletsAtBottom == 0))){
+        bulletsAtBottom = call targetAt(index, -height);
+        index = (index + 1);
+    }
+
+    if((bulletsAtBottom == 1)){
+        call setGameOver();
+    }
+
+    if((bulletsAtBottom == 0)){
+        call removeOutOfBoundsTargets(width, height);
+        call removeCollidingTargetsAndBullets();
+        call moveAllBullets(0, 1);
+        call removeOutOfBoundBullets(width, height);
+        call removeCollidingTargetsAndBullets();
+        if((call getTargetsAmount() == 0)){
+            call setWon();
+        }
+    }
+    return 0;
+}
+
+function pressSpace(){
+    bulletX = call getPlayerX();
+    bulletY = (call getPlayerY() + 1);
+    call shoot(bulletX, bulletY);
     return 0;
 }
 
 function moveLeft(){
-    width = (call getWidth()/2);
     if((call getPlayerX() > -width)){
         call updatePlayerPos(-1,0);
     }
@@ -22,7 +51,6 @@ function moveLeft(){
 }
 
 function moveRight(){
-    width = (call getWidth()/2);
     if((call getPlayerX() < width)){
         call updatePlayerPos(1,0);
     }
