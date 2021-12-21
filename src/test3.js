@@ -1,5 +1,5 @@
 function printNumber(){
-    return 1;
+    return 10;
 }
 x = 0;
 x = call printNumber();

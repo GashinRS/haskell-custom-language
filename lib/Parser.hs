@@ -86,7 +86,7 @@ parseNeg = do token '-'
               return (-n)
 -- match an integer
 parseInt :: Parser Int
-parseInt = parseNat `mplus` parseNeg
+parseInt = parseNat `mplus` parseNeg                 
 
 data Statement = VarStm VariableExp
                 | IfStm IfExp
@@ -344,10 +344,13 @@ data IntExp = IntLit Int
          deriving (Eq,Show)
 
 parseIntExp :: Parser IntExp
-parseIntExp = parseIntLit <|> parseVarLit <|> parseFunctionCallLit <|> parseAdd <|> parseSub <|> parseMul <|> parseDiv
+parseIntExp = parseIntLit <|> parseVarLit <|> parseNegVar <|> parseFunctionCallLit <|> parseAdd <|> parseSub <|> parseMul <|> parseDiv
     where
     parseIntLit = do IntLit <$> parseInt
     parseVarLit = do VarLit <$> parseString
+    parseNegVar = do token '-'
+                     var <- parseString
+                     return (VarLit $ "-" ++ var)
     parseFunctionCallLit = do match "call"
                               name <- parseString
                               token '('

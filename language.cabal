@@ -9,7 +9,8 @@ library
   build-depends: base >= 4.14.3.0 && < 4.15
                , gloss >= 1.13.2.1 && < 1.14
                , containers >= 0.6.5.1
-  exposed-modules: VoorbeeldModule, Parser, Interpreter
+               , random == 1.2.0
+  exposed-modules: Parser, Interpreter, Engine, TempMain
 
 executable language
   main-is: Main.hs
@@ -18,4 +19,5 @@ executable language
   build-depends: base >= 4.14.3.0 && < 4.15 
                , gloss >= 1.13.2.1 && < 1.14
                , containers >= 0.6.5.1
+               , random == 1.2.0
                , language
