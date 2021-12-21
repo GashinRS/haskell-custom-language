@@ -4,16 +4,15 @@ height = (call getHeight()/2);
 function startGame(){
     bottom = (-1 * (call getHeight()/2));
     call setPlayerStart(0,bottom);
-    call addTargets(0,1,-1,10,10,10);
+    call addTargets(-3,-2,-1,0,1,-4,-2,0,1,3,5,10,10,10,10,10,9,9,9,9,9,9);
     return 0;
 }
 
-
 function nextStep(){
     call moveAllTargets(0,-1);
+    
     index = 0;
     bulletsAtBottom = 0;
-
     while (((index < call getWidth()) && (bulletsAtBottom == 0))){
         bulletsAtBottom = call targetAt(index, -height);
         index = (index + 1);

@@ -24,7 +24,7 @@ evalStatements :: [Statement] -> Evaluation -> Evaluation
 evalStatements [] es     = es
 evalStatements [x] es    = evalStatement x es
 evalStatements (x:xs) es = Eval v' f' (i >> i') g'
-                                where (Eval v f i g)    = evalStatement x es
+                                where (Eval v f i g)     = evalStatement x es
                                       (Eval v' f' i' g') = evalStatements xs $ Eval v f i g
 
 evalStatement :: Statement -> Evaluation -> Evaluation
@@ -39,19 +39,19 @@ evalPrint :: PrintExp -> Evaluation -> Evaluation
 evalPrint (PrintInt p) (Eval v f i g) = Eval v f (print $ evalIntExp p $ Eval v f i g) g
 evalPrint (PrintVar p) (Eval v f i g)
                         | isJust lu    = Eval v f (print $ fromJust lu) g
-                        | isNothing lu = Eval v f i g
+                        | otherwise = Eval v f i g
                             where lu = Map.lookup p v
 
 evalIfExp :: IfExp -> Evaluation -> Evaluation
 evalIfExp (If b s) (Eval v f i g)
                 | evalBoolExp b (Eval v f i g)       = evalStatements s (Eval v f i g)
-                | not $ evalBoolExp b (Eval v f i g) = Eval v f (return()) g
+                | otherwise                          = Eval v f (return()) g
 
 evalVarExp :: VariableExp -> Evaluation -> Evaluation
 evalVarExp (Var (s, IntLit il)) (Eval v f i g) = Eval (Map.insert s il v) f i g
 evalVarExp (Var (s, VarLit s')) (Eval v f i g)
                             | isNothing lu = error $ "variable " ++ s' ++ " does not exist"
-                            | isJust lu    = Eval (Map.insert s (fromJust lu) v) f i g
+                            | otherwise    = Eval (Map.insert s (fromJust lu) v) f i g
                                 where lu = Map.lookup s' v
 evalVarExp (Var (s, FunctionCallLit name arguments)) (Eval v f i g) = Eval (Map.insert s (evalIntExp (FunctionCallLit name arguments) (Eval v f i g)) v) f i g
 evalVarExp (Var (s, intExp)) (Eval v f i g)    = Eval (Map.insert s (evalIntExp intExp (Eval v f i g)) v) f i g
@@ -62,7 +62,7 @@ evalFunctionDecl (FunctionDecl name args stms returnV) (Eval v f i g) = Eval v (
 evalGetterCall :: String -> [Int] -> Game -> Int 
 evalGetterCall name args game
                 | isNothing lu = error $ "function " ++ name ++ " does not exist"
-                | isJust lu    = fromJust lu args game
+                | otherwise    = fromJust lu args game
                 where lu = Map.lookup name getters
 
 evalFunctionCall :: FunctionCallExp -> Evaluation -> Int
@@ -73,15 +73,15 @@ evalFunctionCall (FunctionCall name args) e = evalIntExp (returnValue $ fromJust
 evalVoidFunctionCall :: FunctionCallExp -> Evaluation -> Evaluation
 evalVoidFunctionCall (FunctionCall name args) (Eval v f i g)
                                                     | isNothing builtIn = evalVoidFunctionCall' (FunctionCall name args) (Eval v f i g)
-                                                    | isJust builtIn    = Eval v f i $ fromJust builtIn (intExpListToIntList args (Eval v f i g)) g
+                                                    | otherwise         = Eval v f i $ fromJust builtIn (intExpListToIntList args (Eval v f i g)) g
                                             where builtIn = Map.lookup name builtInFunctions 
 
 --used to check if user defined functions are called
 evalVoidFunctionCall' :: FunctionCallExp -> Evaluation -> Evaluation
-evalVoidFunctionCall' (FunctionCall name args) (Eval v f i g) 
-                                                    | isNothing lu = error $ "function " ++ name ++ " does not exist"
+evalVoidFunctionCall' (FunctionCall name args) (Eval v f i g)                                                   
                                                     | let newVar = insertListInMap (arguments $ fromJust lu) (intExpListToIntList args (Eval v f i g)) v, 
                                                         isJust lu = evalStatements (body $ fromJust lu) (Eval newVar f i g)
+                                                    | otherwise  = error $ "function " ++ name ++ " does not exist"
                                             where lu = Map.lookup name f
 
 intExpListToIntList :: [IntExp] -> Evaluation -> [Int]
@@ -94,7 +94,7 @@ insertListInMap (s:ss) (i:is) m = insertListInMap ss is (Map.insert s i m)
 evalWhileExp :: WhileExp -> IO() -> Evaluation -> Evaluation
 evalWhileExp (While b e) io (Eval v f i g)
                     | evalBoolExp b (Eval v f i g)       = evalWhileExp (While b e) (io >> i') $ Eval v' f' (return()) g'
-                    | not $ evalBoolExp b (Eval v f i g) = Eval v f io g
+                    | otherwise                          = Eval v f io g
                     where (Eval v' f' i' g') = evalStatements e (Eval v f i g) --next loop
 
 evalBoolExp :: BoolExp -> Evaluation -> Bool
@@ -113,13 +113,12 @@ evalIntExp (IntLit n) (Eval v f i g) = n
 evalIntExp (VarLit vl) (Eval v f i g)
                     | isNothing lu   = error $ "variable " ++ vl ++ " does not exist"
                     | vl == stripped = fromJust lu
-                    | vl /= stripped = fromJust lu * (-1)
+                    | otherwise      = fromJust lu * (-1)
                         where stripped = stripMinus vl
                               lu = Map.lookup stripped v
-                              
 evalIntExp (FunctionCallLit name arguments) (Eval v f i g)
                                                     | isNothing lu = evalGetterCall name (intExpListToIntList arguments (Eval v f i g)) g
-                                                    | isJust lu    = evalFunctionCall (FunctionCall name arguments) $ Eval v f i g
+                                                    | otherwise    = evalFunctionCall (FunctionCall name arguments) $ Eval v f i g
                                                         where lu = Map.lookup name f
 evalIntExp (e :+: e') (Eval v f i g) = evalIntExp e (Eval v f i g) + evalIntExp e' (Eval v f i g)
 evalIntExp (e :-: e') (Eval v f i g) = evalIntExp e (Eval v f i g) - evalIntExp e' (Eval v f i g)

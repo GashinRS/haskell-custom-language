@@ -10,7 +10,7 @@ library
                , gloss >= 1.13.2.1 && < 1.14
                , containers >= 0.6.5.1
                , random == 1.2.0
-  exposed-modules: Parser, Interpreter, Engine, TempMain
+  exposed-modules: Parser, Interpreter, Engine
 
 executable language
   main-is: Main.hs
