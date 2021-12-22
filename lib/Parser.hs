@@ -72,13 +72,11 @@ plus p = do x <- p
 parseString :: Parser String
 parseString = plus $ spot isAlpha
 
--- parseString' :: Char -> Parser String 
--- parseString' c = do plus $ spot (/= c)
-
 -- match a natural number
 parseNat :: Parser Int
 parseNat = do s <- plus (spot isDigit)
               return (read s)
+              
 -- match a negative number
 parseNeg :: Parser Int
 parseNeg = do token '-'

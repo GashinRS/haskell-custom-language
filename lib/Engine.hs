@@ -243,7 +243,7 @@ collide c1 c2 =  let common = c1 `intersect` c2 in (c1 \\ common, c2 \\ common)
 
 removeCollidingTargetsAndBullets :: [Int] -> Game -> Game
 removeCollidingTargetsAndBullets _ (BlockGame p d t b r) = let (nt, nb) = collide t b
-                                            in BlockGame p d nt nb r
+                                                            in BlockGame p d nt nb r
 
 setWon :: [Int] -> Game -> Game
 setWon _ _ = Won
