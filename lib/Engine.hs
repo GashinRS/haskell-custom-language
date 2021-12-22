@@ -120,7 +120,7 @@ tuplesSum (x, y) (x', y') = (x + x', y + y')
 
 -- Beweegt een object in de gegeven richting
 moveObject :: [Coord] -> Direction -> [Coord]
-moveObject o d = tuplesSum (head o) d : init [x | x <- o]
+moveObject o d = tuplesSum (head o) d : init o
 
 getOppositeDirection :: Direction -> Direction
 getOppositeDirection d
@@ -260,7 +260,7 @@ movePlayer :: [Int] -> Game -> Game
 movePlayer _ (BlockGame p d t b r) = BlockGame (moveObject p d) d t b r
 
 addRandomTarget :: [Int] -> Game -> Game
-addRandomTarget _ (BlockGame p d t b r) = BlockGame p d (t':t) b r
+addRandomTarget _ (BlockGame p d t b r) = BlockGame p d (t':t) b r'
                                             where 
                                               possible = getPossibleAppleLocations p
                                               r'       = getRandomNumberInRange (snd r) 0 $ length possible

@@ -10,9 +10,9 @@ import qualified Data.Map as Map
 import Engine
 
 data Evaluation = Eval { variables :: Map.Map String Int,
-                        functions :: Map.Map String FunctionValues,
-                        io :: IO(),
-                        game :: Game
+                         functions :: Map.Map String FunctionValues,
+                         io :: IO(),
+                         game :: Game
                         }
 
 data FunctionValues = FunV { arguments :: [String],
@@ -38,14 +38,14 @@ evalStatement (FunctionCallStm exp) es = evalVoidFunctionCall exp es
 evalPrint :: PrintExp -> Evaluation -> Evaluation
 evalPrint (PrintInt p) (Eval v f i g) = Eval v f (print $ evalIntExp p $ Eval v f i g) g
 evalPrint (PrintVar p) (Eval v f i g)
-                        | isJust lu    = Eval v f (print $ fromJust lu) g
+                        | isJust lu = Eval v f (print $ fromJust lu) g
                         | otherwise = Eval v f i g
                             where lu = Map.lookup p v
 
 evalIfExp :: IfExp -> Evaluation -> Evaluation
 evalIfExp (If b s) (Eval v f i g)
-                | evalBoolExp b (Eval v f i g)       = evalStatements s (Eval v f i g)
-                | otherwise                          = Eval v f (return()) g
+                | evalBoolExp b (Eval v f i g) = evalStatements s (Eval v f i g)
+                | otherwise                    = Eval v f (return()) g
 
 evalVarExp :: VariableExp -> Evaluation -> Evaluation
 evalVarExp (Var (s, IntLit il)) (Eval v f i g) = Eval (Map.insert s il v) f i g
@@ -54,11 +54,12 @@ evalVarExp (Var (s, VarLit s')) (Eval v f i g)
                             | otherwise    = Eval (Map.insert s (fromJust lu) v) f i g
                                 where lu = Map.lookup s' v
 evalVarExp (Var (s, FunctionCallLit name arguments)) (Eval v f i g) = Eval (Map.insert s (evalIntExp (FunctionCallLit name arguments) (Eval v f i g)) v) f i g
-evalVarExp (Var (s, intExp)) (Eval v f i g)    = Eval (Map.insert s (evalIntExp intExp (Eval v f i g)) v) f i g
+evalVarExp (Var (s, intExp)) (Eval v f i g)                         = Eval (Map.insert s (evalIntExp intExp (Eval v f i g)) v) f i g
 
 evalFunctionDecl :: FunctionDeclExp -> Evaluation -> Evaluation
 evalFunctionDecl (FunctionDecl name args stms returnV) (Eval v f i g) = Eval v (Map.insert name (FunV args stms returnV) f) i g
 
+--wordt gebruikt om built in getters op te roepen
 evalGetterCall :: String -> [Int] -> Game -> Int 
 evalGetterCall name args game
                 | isNothing lu = error $ "function " ++ name ++ " does not exist"
@@ -69,14 +70,14 @@ evalFunctionCall :: FunctionCallExp -> Evaluation -> Int
 evalFunctionCall (FunctionCall name args) e = evalIntExp (returnValue $ fromJust $ Map.lookup name f) $ Eval v f i g
                                                             where (Eval v f i g) = evalVoidFunctionCall (FunctionCall name args) e
 
---used to check if built in functions are called, this function is called before evalVoidFunctionCall'
+--wordt gebruikt om te kijken of built in void functies opgeroepen worden, dit wordt uitgevoerd voor evalVoidFunctionCall'
 evalVoidFunctionCall :: FunctionCallExp -> Evaluation -> Evaluation
 evalVoidFunctionCall (FunctionCall name args) (Eval v f i g)
                                                     | isNothing builtIn = evalVoidFunctionCall' (FunctionCall name args) (Eval v f i g)
                                                     | otherwise         = Eval v f i $ fromJust builtIn (intExpListToIntList args (Eval v f i g)) g
                                             where builtIn = Map.lookup name builtInFunctions 
 
---used to check if user defined functions are called
+--wordt gebruikt om te kijken of user defined functies worden opgeroepen
 evalVoidFunctionCall' :: FunctionCallExp -> Evaluation -> Evaluation
 evalVoidFunctionCall' (FunctionCall name args) (Eval v f i g)                                                   
                                                     | let newVar = insertListInMap (arguments $ fromJust lu) (intExpListToIntList args (Eval v f i g)) v, 
@@ -87,6 +88,7 @@ evalVoidFunctionCall' (FunctionCall name args) (Eval v f i g)
 intExpListToIntList :: [IntExp] -> Evaluation -> [Int]
 intExpListToIntList intExps e = [evalIntExp x e | x <- intExps]
 
+--wordt gebruikt om een lijst van variabelen en hun respectievelijke waarden in de map te steken met alle variabelen
 insertListInMap :: [String] -> [Int] -> Map.Map String Int -> Map.Map String Int
 insertListInMap [] [] m         = m
 insertListInMap (s:ss) (i:is) m = insertListInMap ss is (Map.insert s i m)
@@ -127,5 +129,5 @@ evalIntExp (e :/: e') (Eval v f i g) = evalIntExp e (Eval v f i g) `div` evalInt
 
 stripMinus :: String -> String 
 stripMinus (s:ss) 
-                |s == '-' = ss
-                |s /= '-' = s:ss
+                |s == '-'  = ss
+                |otherwise = s:ss

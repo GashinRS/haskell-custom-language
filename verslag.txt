@@ -1,3 +1,66 @@
 # Verslag opgave 3
 
-...
+Allereerst wordt een kort overzicht gegeven over de syntax van de eigen programmeertaal. 
+Deze is gebaseerd op Java/JavaScript met enkele opmerkingen:
+-om een functie te declareren moet het woord "functie" voor de naam van de functie staan
+-om een functie op te roepen moet het woord "call" voor de oproep staan
+-het enige type dat ondersteund wordt zijn integers (integers kunnen wel vergeleken worden om voorwaardelijke expressies te schrijven voor ifs en whiles)
+-enkel while loops worden ondersteund (geen for loops)
+-alle bewerkingen tussen getallen (wiskundige en logische) moeten tussen haken staan
+-else wordt niet ondersteund
+-alle functies moeten iets returnen op het einde
+
+De interpreter ontvangt in 1 keer het volledig geparsete bestand. Dit wordt direct geëvalueerd door evalStatements.
+Het resultaat is iets van een type Evaluation, dit bevat alle variabelen, functies, de IO bewerkingen en informatie over de Game.
+De variabelen zitten in een map dat gebruikt wordt om opzoeken en updaten makkelijker te maken, dit geldt ook voor de functies.
+Er zijn ook nog 2 aparte maps voor built in functies zonder en met return type.
+
+evalStatements roept zichzelf recursief op om alle statements te evalueren, en gebruikt hiervoor ook evalStatement.
+evalStatement maakt gebruik van pattern matching om op een specifieke eval functie op te roepen. Aangezien de meeste van deze 
+functies vrij vanzelfsprekend zijn zullen er maar enkelen hiervan in detail besproken worden. 
+
+Er zijn 4 verschillende eval functies om functie oproepen te behandelen (evalGetterCall, evalFunctionCall, evalVoidFunctionCall, 
+evalVoidFunctionCall'). evalFunctionCall wordt gebruikt om functie oproepen van user defined functies met een integer return type te 
+behandelen. Aangezien functies met een return type een integer expression zijn, gebeurt dit in evalIntExp. Indien de opgeroepen functie
+geen user defined functie is, wordt er gekeken of het een built in functie is met een integer return type, zo ja wordt deze opgeroepen,
+en anders wordt een error opgegooid met de naam van de functie die opgeroepen werd maar niet bestaat.
+
+evalVoidFunctionCall en evalVoidFunctionCall' zijn om functies zonder return type te evalueren. De eerste dient om built in functies op
+te roepen, en de tweede voor user defined functies. Het is ook belangrijk om op te merken dat de parser geen onderscheid maakt tussen
+built in functies en user defined functies, deze onderscheid wordt pas gemaakt in de interpreter. Ook is het makkelijk om nieuwe built in
+functies toe te voegen; alles dat men moet doen is deze functie schrijven in de engine en hem toevoegen aan de juiste map van functies
+afhankelijk van het return type (builtInFunctions of getters). Er moet nergens anders code aangepast worden.
+
+Wanneer een functie gedeclareerd wordt kan men het aantal argumenten kiezen en deze een naam geven, maar aangezien er enkel een global
+scope ondersteund wordt moet de keuze van deze namen wel voorzichtig gedaan worden. Indien een functie die er op de volgende manier uitziet
+opgeroepen wordt:
+
+function square(x){
+    n = (x*x);
+    return n;
+}
+
+print(call square(2));
+
+Dan krijgt de variabele x de waarde 2, en blijft deze behouden tot hij overschreven wordt. Elke keer als een functie wordt opgeroepen met
+argumenten wordt dus de map van (globale) variabelen geupdate, dit gebeurt in evalVoidFunctionCall'. evalFunctionCall gebruikt om deze reden
+ook evalVoidFunctionCall', aangezien de variabelen globaal zijn kan er makkelijk nagegaan worden wat er werd teruggegeven nadat een functie is
+uitgevoerd. 
+
+Hoewel de scope global is, wordt recursie toch (deels) ondersteund. Dit komt omdat bij een recursieve oproep zoals te zien in het voorbeeld
+in factorial.js, deze oproep gebeurt in een vermenigvuldiging, en alle termen in deze vermenigvuldiging gebruik maken van dezelfde map van variabelen
+zodat de recursieve oproep niet de waarde van n kan beïnvloeden binnen deze vermenigvuldiging. Dit voorbeeld kan uitgetest worden door de main functie te
+vervangen met de main functie die in commentaar er onder staat.
+
+De games maken gebruik van vaste functies die altijd gedefinieerd moeten zijn, en ook allemaal geen return type hebben. Er staat overal wel een return
+omdat de syntax dit vereist, maar hier wordt verder niets mee gedaan. Deze vaste functies zoals startGame worden opgeroepen in main door gebruik te maken
+van de hulpfunctie callGameFunction die op zijn beurt gebruik maakt van de functie evalFunctionCall. De nextStep functie in shooter.js illustreert ook de
+werking van while loops in de eigen taal. Ook het nesten van if en while is mogelijk, hoewel er hier enkel een voorbeeld is van geneste ifs.
+
+Er is geen gebruik gemaakt van monad transformers omdat er pas te laat werd gerealiseerd hoe dit gedaan zou kunnen worden. Met de huidige implementatie
+met Evaluation moeten er soms splitsingen gemaakt worden die bijvoorbeeld met een de state monad niet nodig zouden zijn. Functie oproepen zouden dan met
+dezelfde eval functie geëvalueerd kunnen worden omdat deze dan gewoon een state kan returnen met als resultaat een integer bij functies met een integer
+return type, en niets in het geval van een void functie oproep. De rest zou dan bij allebei gewoon de nieuwe staat van de Evaluation zijn. Ook de 2 maps
+die zijn gebruikt om built in functies mee bij te houden zouden op dezelfde manier ingekort kunnen worden naar 1 map door gebruik te maken van de state 
+monad. Deze state monad nesten in een either monad zou error handling ook overzichtelijker maken dan met de huidige implementatie waar gewoon de functie 
+"error" wordt gebruikt.

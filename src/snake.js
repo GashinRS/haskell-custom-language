@@ -4,6 +4,7 @@ height = (call getHeight()/2);
 function startGame(){
     call setPlayerStart(0,0);
     call addRandomTarget();
+    call setDirection(0, 1);
     return 0;
 }
 

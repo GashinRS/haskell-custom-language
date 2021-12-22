@@ -13,7 +13,7 @@ callGameFunction :: String -> Evaluation -> Evaluation
 callGameFunction name = evalVoidFunctionCall (FunctionCall name [])
 
 startGame :: (Int, StdGen) -> Evaluation -> Evaluation
-startGame random (Eval v f i (BlockGame p d t b r)) = Eval v f i (BlockGame p north t b random)
+startGame random (Eval v f i (BlockGame p d t b r)) = Eval v f i (BlockGame p d t b random)
 startGame _ e                                       = e
 
 gamePic :: Evaluation -> Picture
@@ -28,7 +28,7 @@ move (EventKey (SpecialKey KeyRight) Down _ _) (Eval v f i (BlockGame p d t b r)
 move (EventKey (SpecialKey KeyDown) Down _ _) (Eval v f i (BlockGame p d t b r))  = callGameFunction "moveDown" (Eval v f i (BlockGame p d t b r))
 move (EventKey (SpecialKey KeyUp) Down _ _) (Eval v f i (BlockGame p d t b r))    = callGameFunction "moveUp" (Eval v f i (BlockGame p d t b r))
 move (EventKey (SpecialKey KeySpace) Down _ _) (Eval v f i (BlockGame p d t b r)) = callGameFunction "pressSpace" (Eval v f i (BlockGame p d t b r))
-move _ g                                         = g
+move _ g                                                                          = g
 
 
 next :: Float -> Evaluation -> Evaluation
@@ -39,7 +39,7 @@ main :: IO ()
 main = do (filename:_) <- getArgs -- het eerste argument (stack run tetris.xyz)
           contents <- readFile filename -- bevat de inhoud van tetris.xyz als String
           stdGen <- getStdGen
-          let r = getRandomNumberInRange stdGen 0 $ height*width-1
+          let r = getRandomNumberInRange stdGen 0 42
           let all = evalStatements (parse parseStatement $ filter (not . isSpace) contents) $ Eval Map.empty Map.empty (return()) $ BlockGame [] (0,0) [] [] r
           let funs = functions all
           let start = callGameFunction "startGame" all
@@ -50,3 +50,12 @@ main = do (filename:_) <- getArgs -- het eerste argument (stack run tetris.xyz)
                     gamePic -- de 'render'-functie, om naar scherm te tekenen
                     move -- de 'handle'-functie, om gebruiksinvoer te verwerken
                     next -- de 'step'-functie, om 1 tijdstap te laten passeren
+
+
+--onderstaande code dient om factorial.js uit te kunnen voeren
+-- main :: IO ()
+-- main = do (filename:_) <- getArgs -- het eerste argument (stack run tetris.xyz)
+--           contents <- readFile filename -- bevat de inhoud van tetris.xyz als String
+--           stdGen <- getStdGen
+--           let r = getRandomNumberInRange stdGen 0 42
+--           io $ evalStatements (parse parseStatement $ filter (not . isSpace) contents) $ Eval Map.empty Map.empty (return()) $ BlockGame [] (0,0) [] [] r
