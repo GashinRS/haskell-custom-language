@@ -66,6 +66,7 @@ evalGetterCall name args game
                 | otherwise    = fromJust lu args game
                 where lu = Map.lookup name getters
 
+-- wordt gebruikt om user defined functie op te roepen die iets moeten returnen
 evalFunctionCall :: FunctionCallExp -> Evaluation -> Int
 evalFunctionCall (FunctionCall name args) e = evalIntExp (returnValue $ fromJust $ Map.lookup name f) $ Eval v f i g
                                                             where (Eval v f i g) = evalVoidFunctionCall (FunctionCall name args) e
@@ -88,7 +89,7 @@ evalVoidFunctionCall' (FunctionCall name args) (Eval v f i g)
 intExpListToIntList :: [IntExp] -> Evaluation -> [Int]
 intExpListToIntList intExps e = [evalIntExp x e | x <- intExps]
 
---wordt gebruikt om een lijst van variabelen en hun respectievelijke waarden in de map te steken met alle variabelen
+--wordt gebruikt om een lijst van variabelen en een lijst van hun respectievelijke waarden in de map te steken met alle variabelen
 insertListInMap :: [String] -> [Int] -> Map.Map String Int -> Map.Map String Int
 insertListInMap [] [] m         = m
 insertListInMap (s:ss) (i:is) m = insertListInMap ss is (Map.insert s i m)
@@ -113,11 +114,11 @@ evalBoolExp (e :||: e') (Eval v f i g) = evalBoolExp e (Eval v f i g) || evalBoo
 evalIntExp :: IntExp -> Evaluation -> Int
 evalIntExp (IntLit n) (Eval v f i g) = n
 evalIntExp (VarLit vl) (Eval v f i g)
-                    | isNothing lu   = error $ "variable " ++ vl ++ " does not exist"
-                    | vl == stripped = fromJust lu
-                    | otherwise      = fromJust lu * (-1)
-                        where stripped = stripMinus vl
-                              lu = Map.lookup stripped v
+                                | isNothing lu   = error $ "variable " ++ vl ++ " does not exist"
+                                | vl == stripped = fromJust lu
+                                | otherwise      = fromJust lu * (-1)
+                                    where stripped = stripMinus vl
+                                          lu       = Map.lookup stripped v
 evalIntExp (FunctionCallLit name arguments) (Eval v f i g)
                                                     | isNothing lu = evalGetterCall name (intExpListToIntList arguments (Eval v f i g)) g
                                                     | otherwise    = evalFunctionCall (FunctionCall name arguments) $ Eval v f i g

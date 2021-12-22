@@ -130,6 +130,8 @@ getOppositeDirection d
   | d == east          = west
 getOppositeDirection _ = (0,0)
 
+-- Map met alle built in functies (getters) die een int moeten teruggeven. Om een built in functie toe te voegen volstaat het om hem in de engine te schrijven
+-- en hem toe te voegen aan deze map.
 getters :: Map.Map String ([Int] -> Game -> Int)
 getters = Map.fromList [("getWidth", getWidth), ("getHeight", getHeight), ("getPlayerX", getPlayerX),
                         ("getPlayerY", getPlayerY), ("getTargetsAmount", getTargetsAmount), ("targetAt", targetAt),
@@ -172,10 +174,12 @@ targetAt xy (BlockGame p d t b r) | (x,y) `elem` t = 1
                                     where x = head xy
                                           y = xy !! 1
 
+-- Geeft het aantal tiles terug dat de speler in beslag neemt
 getUniquePlayerTiles :: [Int] -> Game -> Int
 getUniquePlayerTiles _ (BlockGame p d t b r) = length $ nub p
 
-
+-- Map met alle built in functies geen return type hebben maar wel de staat van de game aanpassen. Om een built in functie toe te voegen 
+-- volstaat het om hem in de engine te schrijven en hem toe te voegen aan deze map. 
 builtInFunctions :: Map.Map String ([Int] -> Game -> Game)
 builtInFunctions = Map.fromList [("setPlayerStart", setPlayerStart), ("updatePlayerPos", updatePlayerPos), ("addTarget", addTarget),
                                 ("moveAllTargets", moveAllTargets), ("shoot", shoot), ("moveAllBullets", moveAllBullets),
