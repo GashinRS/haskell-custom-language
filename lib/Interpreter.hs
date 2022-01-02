@@ -20,6 +20,8 @@ data FunctionValues = FunV { arguments :: [String],
                              returnValue :: IntExp
                             }
 
+-- heeft state monad nodig
+
 evalStatements :: [Statement] -> Evaluation -> Evaluation
 evalStatements [] es     = es
 evalStatements [x] es    = evalStatement x es
@@ -50,6 +52,7 @@ evalIfExp (If b s) (Eval v f i g)
 evalVarExp :: VariableExp -> Evaluation -> Evaluation
 evalVarExp (Var (s, IntLit il)) (Eval v f i g) = Eval (Map.insert s il v) f i g
 evalVarExp (Var (s, VarLit s')) (Eval v f i g)
+                            -- heeft either monad nodig
                             | isNothing lu = error $ "variable " ++ s' ++ " does not exist"
                             | otherwise    = Eval (Map.insert s (fromJust lu) v) f i g
                                 where lu = Map.lookup s' v

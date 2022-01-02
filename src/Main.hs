@@ -23,12 +23,12 @@ gamePic (Eval v f i Won)                   = displayMessage "You won!"
 gamePic (Eval v f i GameOver)              = displayMessage "You lost!"
 
 move :: Event -> Evaluation -> Evaluation
-move (EventKey (SpecialKey KeyLeft) Down _ _) (Eval v f i (BlockGame p d t b r))  = callGameFunction "moveLeft" (Eval v f i (BlockGame p d t b r))
-move (EventKey (SpecialKey KeyRight) Down _ _) (Eval v f i (BlockGame p d t b r)) = callGameFunction "moveRight" (Eval v f i (BlockGame p d t b r))
-move (EventKey (SpecialKey KeyDown) Down _ _) (Eval v f i (BlockGame p d t b r))  = callGameFunction "moveDown" (Eval v f i (BlockGame p d t b r))
-move (EventKey (SpecialKey KeyUp) Down _ _) (Eval v f i (BlockGame p d t b r))    = callGameFunction "moveUp" (Eval v f i (BlockGame p d t b r))
-move (EventKey (SpecialKey KeySpace) Down _ _) (Eval v f i (BlockGame p d t b r)) = callGameFunction "pressSpace" (Eval v f i (BlockGame p d t b r))
-move _ g                                                                          = g
+move (EventKey (SpecialKey KeyLeft) Down _ _)  = callGameFunction "moveLeft"
+move (EventKey (SpecialKey KeyRight) Down _ _) = callGameFunction "moveRight"
+move (EventKey (SpecialKey KeyDown) Down _ _)  = callGameFunction "moveDown"
+move (EventKey (SpecialKey KeyUp) Down _ _)    = callGameFunction "moveUp"
+move (EventKey (SpecialKey KeySpace) Down _ _) = callGameFunction "pressSpace"
+move _                                         = id
 
 
 next :: Float -> Evaluation -> Evaluation

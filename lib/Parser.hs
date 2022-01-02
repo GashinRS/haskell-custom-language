@@ -86,6 +86,7 @@ parseNeg = do token '-'
 parseInt :: Parser Int
 parseInt = parseNat `mplus` parseNeg                 
 
+-- hoort thuis in syntaxmodule?
 data Statement = VarStm VariableExp
                 | IfStm IfExp
                 | PrintStm PrintExp
@@ -107,6 +108,7 @@ parseVariableBegin = do s <- parseString
                         return (s, s')
 
 parseVariableExp :: Parser [Statement]
+-- duplicatie bij elke begin/end
 parseVariableExp = parseIntBegin <|> parseIntEnd
     where
     parseIntBegin  = do (s, s') <- parseVariableBegin
@@ -166,6 +168,7 @@ parsePrintExp = parseIntBegin <|> parseIntEnd
           parseIntEnd    = do s <- parsePrintCall
                               return [PrintStm (PrintInt s)]
 
+-- gebruik many/some ipv telkens recursie
 parseArguments :: Parser [IntExp]
 parseArguments = parseArgBegin <|> parseArgEnd <|> parseNoArg
     where parseArgBegin = do s <- parseIntExp
@@ -271,6 +274,7 @@ parseBoolExp = parseTrue <|> parseFalse <|> parseEq <|> parseNE <|> parseLT <|> 
                     return (BoolLit True)
     parseFalse = do match "false"
                     return (BoolLit False)
+    -- gemiste abstractie: binaire operatie
     parseEq    = do token '('
                     d <- parseIntExp
                     match "=="
