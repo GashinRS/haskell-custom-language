@@ -1,7 +1,6 @@
 cabal-version: 2.2
 name: language
 version: 0.0.1
-extra-source-files: verslag.txt
 
 library
   hs-source-dirs: lib
